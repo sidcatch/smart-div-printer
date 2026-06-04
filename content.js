@@ -736,8 +736,8 @@
             }
             
             img, svg, video, canvas {
-                max-width: 100% !important;
-                height: auto !important;
+                max-width: 100%;
+                height: auto;
             }
             
             table {
@@ -786,6 +786,13 @@
                     max-height: none !important;
                     animation: none !important;
                     transition: none !important;
+                }
+                
+                img, svg, video, canvas {
+                    display: block !important;
+                    margin-bottom: 1.5em !important;
+                    page-break-inside: avoid;
+                    break-inside: avoid-page;
                 }
                 
                 h1, h2, h3, h4, h5, h6 {
@@ -865,87 +872,13 @@
         ];
         const cloneElements = [cloneRoot, ...cloneRoot.querySelectorAll('*')];
 
-        const criticalProps = [
-            'display',
-            'position',
-            'box-sizing',
-            'font-family',
-            'font-size',
-            'font-weight',
-            'font-style',
-            'line-height',
-            'letter-spacing',
-            'text-align',
-            'text-decoration',
-            'text-transform',
-            'white-space',
-            'word-break',
-            'overflow-wrap',
-            'color',
-            'background',
-            'background-color',
-            'background-image',
-            'border',
-            'border-top',
-            'border-right',
-            'border-bottom',
-            'border-left',
-            'border-radius',
-            'padding',
-            'padding-top',
-            'padding-right',
-            'padding-bottom',
-            'padding-left',
-            'margin',
-            'margin-top',
-            'margin-right',
-            'margin-bottom',
-            'margin-left',
-            'width',
-            'height',
-            'min-width',
-            'max-width',
-            'min-height',
-            'max-height',
-            'vertical-align',
-            'list-style',
-            'list-style-type',
-            'list-style-position',
-            'overflow',
-            'overflow-x',
-            'overflow-y',
-            'grid-template-columns',
-            'grid-template-rows',
-            'gap',
-            'column-gap',
-            'row-gap',
-            'flex-direction',
-            'flex-wrap',
-            'align-items',
-            'justify-content',
-            'text-indent',
-            'opacity',
-        ];
-
         sourceElements.forEach((src, i) => {
             const clone = cloneElements[i];
             if (!clone || !(clone instanceof Element)) return;
 
             const computed = getComputedStyle(src);
 
-            // Inline critical styles
-            criticalProps.forEach((prop) => {
-                try {
-                    const value = computed.getPropertyValue(prop);
-                    if (value) {
-                        clone.style.setProperty(prop, value, 'important');
-                    }
-                } catch (error) {
-                    // Skip properties that fail
-                }
-            });
-
-            // Handle scrollable containers - expand them
+            // Handle scrollable containers - expand them to show full content
             const isScrollable =
                 src.scrollHeight > src.clientHeight + 2 ||
                 src.scrollWidth > src.clientWidth + 2;
@@ -956,7 +889,7 @@
                 clone.style.setProperty('max-height', 'none', 'important');
             }
 
-            // Fix fixed/sticky positioning
+            // Fix fixed/sticky positioning for print
             if (['fixed', 'sticky'].includes(computed.position)) {
                 clone.style.setProperty('position', 'static', 'important');
             }
