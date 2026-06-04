@@ -674,21 +674,6 @@
     function createPrintStyles() {
         const style = document.createElement('style');
         style.textContent = `
-            * {
-                box-sizing: border-box;
-                -webkit-print-color-adjust: exact;
-                print-color-adjust: exact;
-            }
-            
-            html, body {
-                margin: 0;
-                padding: 0;
-                background: #fff;
-                color: #202124;
-                font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-                line-height: 1.5;
-            }
-            
             .print-toolbar {
                 position: sticky;
                 top: 0;
@@ -710,12 +695,6 @@
                 color: #202124;
                 font: 13px system-ui, sans-serif;
                 cursor: pointer;
-                transition: all 0.1s;
-            }
-            
-            .print-toolbar button:hover {
-                background: #f8f9fa;
-                border-color: #c6c6c6;
             }
             
             .print-toolbar button.primary {
@@ -724,95 +703,9 @@
                 border-color: #1a73e8;
             }
             
-            .print-toolbar button.primary:hover {
-                background: #1765cc;
-                border-color: #1765cc;
-            }
-            
-            .print-content {
-                max-width: 900px;
-                margin: 0 auto;
-                padding: 32px 24px;
-            }
-            
-            img, svg, video, canvas {
-                max-width: 100%;
-                height: auto;
-            }
-            
-            table {
-                border-collapse: collapse;
-                width: 100%;
-            }
-            
-            pre, code {
-                white-space: pre-wrap !important;
-                overflow-wrap: anywhere;
-                font-family: 'Consolas', 'Monaco', monospace;
-            }
-            
-            a {
-                color: #1a73e8;
-                text-decoration: none;
-            }
-            
-            a:hover {
-                text-decoration: underline;
-            }
-            
-            @page {
-                margin: 15mm;
-                size: letter;
-            }
-            
             @media print {
                 .print-toolbar {
                     display: none !important;
-                }
-                
-                html, body {
-                    width: 100%;
-                    height: auto;
-                }
-                
-                .print-content {
-                    max-width: 100%;
-                    margin: 0;
-                    padding: 0;
-                }
-                
-                * {
-                    overflow: visible !important;
-                    max-height: none !important;
-                    animation: none !important;
-                    transition: none !important;
-                }
-                
-                img, svg, video, canvas {
-                    display: block !important;
-                    margin-bottom: 1.5em !important;
-                    page-break-inside: avoid;
-                    break-inside: avoid-page;
-                }
-                
-                h1, h2, h3, h4, h5, h6 {
-                    page-break-after: avoid;
-                    break-after: avoid-page;
-                }
-                
-                p, li, blockquote {
-                    orphans: 3;
-                    widows: 3;
-                }
-                
-                img, svg, table, pre, blockquote, figure, canvas {
-                    page-break-inside: avoid;
-                    break-inside: avoid-page;
-                }
-                
-                tr, thead, tbody, tfoot {
-                    page-break-inside: avoid;
-                    break-inside: avoid-page;
                 }
             }
         `;
