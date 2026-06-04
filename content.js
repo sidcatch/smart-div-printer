@@ -604,7 +604,7 @@
     function printElement(sourceElement) {
         const clone = createPrintableClone(sourceElement);
         const pageTitle = document.title || 'Untitled';
-        const printTitle = `Print - ${pageTitle}`;
+        const printTitle = pageTitle;
 
         // Save original content
         const originalBody = document.body.cloneNode(true);
