@@ -558,30 +558,13 @@
         }
     }
 
-    function onWheel(event) {
-        // Allow UI interactions
-        if (isUIElement(event.target)) return;
-
-        // Prevent scrolling during selection
-        event.preventDefault();
-        event.stopPropagation();
-    }
-
-    function onScroll(event) {
-        // Allow UI interactions
-        if (isUIElement(event.target)) return;
-
-        // Prevent scrolling during selection
-        event.preventDefault();
-        event.stopPropagation();
-    }
-
-    function onTouchMove(event) {
-        // Allow UI interactions
-        if (isUIElement(event.target)) return;
-
-        // Prevent touch scrolling during selection
-        event.preventDefault();
+    function onScroll() {
+        // Update overlay position during scroll
+        if (state.mode === 'hovering' && state.hoveredElement) {
+            updateOverlay(state.hoveredElement);
+        } else if (state.mode === 'selecting' && state.selectedElement) {
+            updateOverlay(state.selectedElement);
+        }
     }
 
     function updateOverlay(element) {
@@ -861,25 +844,9 @@
         document.addEventListener('mousedown', onMouseDown, true);
         document.addEventListener('click', onClick, true);
         document.addEventListener('keydown', onKeyDown, true);
+        document.addEventListener('scroll', onScroll, true);
 
-        // Prevent scrolling during selection
-        document.addEventListener('wheel', onWheel, {
-            passive: false,
-            capture: true,
-        });
-        document.addEventListener('scroll', onScroll, {
-            passive: false,
-            capture: true,
-        });
-        document.addEventListener('touchmove', onTouchMove, {
-            passive: false,
-            capture: true,
-        });
-
-        // Lock body scroll
-        document.body.style.overflow = 'hidden';
-
-        // Prevent accidental navigation
+        // Visual feedback
         document.body.style.cursor = 'crosshair';
     }
 
@@ -893,17 +860,12 @@
         document.removeEventListener('mousedown', onMouseDown, true);
         document.removeEventListener('click', onClick, true);
         document.removeEventListener('keydown', onKeyDown, true);
-        document.removeEventListener('wheel', onWheel, true);
         document.removeEventListener('scroll', onScroll, true);
-        document.removeEventListener('touchmove', onTouchMove, true);
 
         // Remove UI
         state.ui.overlay?.remove();
         state.ui.tooltip?.remove();
         state.ui.controlPanel?.remove();
-
-        // Restore body scroll
-        document.body.style.overflow = '';
 
         // Restore cursor
         document.body.style.cursor = '';
