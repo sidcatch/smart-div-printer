@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Smart Div Printer</title>
+        <link rel="stylesheet" href="popup.css" />
+    </head>
+    <body>
+        <div class="container">
+            <header class="header">
+                <div class="header-content">
+                    <svg
+                        class="header-icon"
+                        width="20"
+                        height="20"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                    >
+                        <polyline points="6 9 6 2 18 2 18 9"></polyline>
+                        <path
+                            d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"
+                        ></path>
+                        <rect x="6" y="14" width="12" height="8"></rect>
+                    </svg>
+                    <h1 class="header-title">Smart Div Printer</h1>
+                </div>
+                <div class="header-site" id="currentSite">Loading...</div>
+            </header>
+
+            <div class="actions">
+                <button class="btn btn-primary" id="selectPrintBtn">
+                    <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                    >
+                        <polyline points="6 9 6 2 18 2 18 9"></polyline>
+                        <path
+                            d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"
+                        ></path>
+                        <rect x="6" y="14" width="12" height="8"></rect>
+                    </svg>
+                    Select for PDF
+                </button>
+                <button class="btn btn-secondary" id="selectHideBtn">
+                    <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                    >
+                        <path
+                            d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"
+                        ></path>
+                        <circle cx="12" cy="12" r="3"></circle>
+                        <line x1="1" y1="1" x2="23" y2="23"></line>
+                    </svg>
+                    Select to Hide from Print
+                </button>
+            </div>
+
+            <div class="content">
+                <div class="section-header">
+                    <h2 class="section-title">
+                        Hidden from Print (<span id="hiddenCount">0</span>)
+                    </h2>
+                    <button
+                        class="btn-text"
+                        id="clearAllBtn"
+                        style="display: none"
+                    >
+                        Clear All
+                    </button>
+                </div>
+
+                <div id="emptyState" class="empty-state">
+                    <svg
+                        width="48"
+                        height="48"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                    >
+                        <path
+                            d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"
+                        ></path>
+                        <circle cx="12" cy="12" r="3"></circle>
+                        <line x1="1" y1="1" x2="23" y2="23"></line>
+                    </svg>
+                    <p>No elements hidden from print on this site</p>
+                    <p class="empty-state-hint">
+                        Use "Select to Hide" to mark elements
+                    </p>
+                </div>
+
+                <div id="hiddenList" class="hidden-list"></div>
+            </div>
+
+            <footer class="footer">
+                <div class="footer-stats">
+                    <span id="statsText">Ready to print</span>
+                </div>
+            </footer>
+        </div>
+
+        <script src="popup.js"></script>
+    </body>
+</html>

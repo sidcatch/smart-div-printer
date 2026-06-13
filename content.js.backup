@@ -1,6 +1,6 @@
 /**
  * Smart Div Printer - Content Script
- * Provides visual element selection for printing or hiding from print
+ * Provides visual element selection and print extraction with hide-from-print functionality
  */
 
 (() => {
@@ -10,13 +10,11 @@
     // Initialization
     // ===========================
 
-    let state = null;
-
     // Initialize on page load
     init();
 
     async function init() {
-        // Apply hidden elements markers when page loads
+        // Apply hidden elements (red markers) when page loads
         await applyHiddenElements();
 
         // Listen for messages from popup
@@ -36,7 +34,7 @@
     }
 
     // ===========================
-    // Apply Hidden Elements Markers
+    // Apply Hidden Elements
     // ===========================
 
     async function applyHiddenElements() {
@@ -51,29 +49,21 @@
                 .querySelectorAll('[data-smart-printer-hidden]')
                 .forEach((el) => {
                     el.removeAttribute('data-smart-printer-hidden');
-                    el.style.outline = '';
-                    el.style.outlineOffset = '';
-                    const marker = el.querySelector(
-                        '[data-smart-printer-marker]',
-                    );
+                    const marker = el.querySelector('[data-smart-printer-marker]');
                     if (marker) marker.remove();
                 });
 
-            // Apply markers to hidden elements (visible red borders, not actually hidden from page)
+            // Apply hidden state markers to elements (red borders, not actually hidden)
             siteHidden.forEach((hiddenItem) => {
                 if (hiddenItem.enabled === false) return; // Skip disabled items
 
-                try {
-                    const elements = document.querySelectorAll(
-                        hiddenItem.selector,
-                    );
-                    elements.forEach((el) => {
-                        el.setAttribute('data-smart-printer-hidden', 'true');
-                        addRedMarker(el);
-                    });
-                } catch (e) {
-                    console.warn('Invalid selector:', hiddenItem.selector);
-                }
+                const selector = hiddenItem.selector;
+                const elements = document.querySelectorAll(selector);
+
+                elements.forEach((el) => {
+                    el.setAttribute('data-smart-printer-hidden', 'true');
+                    addRedMarker(el);
+                });
             });
         } catch (error) {
             console.error('Error applying hidden elements:', error);
@@ -86,7 +76,7 @@
 
         const marker = document.createElement('div');
         marker.setAttribute('data-smart-printer-marker', 'true');
-        marker.textContent = '🚫 Hidden from print';
+        marker.textContent = 'Hidden from print';
         Object.assign(marker.style, {
             position: 'absolute',
             top: '0',
@@ -94,13 +84,12 @@
             zIndex: '999999',
             background: '#ea4335',
             color: '#fff',
-            padding: '2px 8px',
-            fontSize: '11px',
+            padding: '2px 6px',
+            fontSize: '10px',
             fontWeight: 'bold',
             borderRadius: '0 0 4px 0',
             pointerEvents: 'none',
             fontFamily: 'system-ui, sans-serif',
-            boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
         });
 
         // Ensure element has position context
@@ -109,7 +98,7 @@
             element.style.position = 'relative';
         }
 
-        // Add red dashed border
+        // Add red border
         element.style.outline = '2px dashed #ea4335';
         element.style.outlineOffset = '-2px';
 
@@ -121,134 +110,75 @@
     // ===========================
 
     function startSelectionMode(selectionType) {
-        // Toggle off if already active
+        // Check if already active
         if (window.__smartDivPrinter?.active) {
             window.__smartDivPrinter.cleanup();
             return;
         }
 
-        const isPrint = selectionType === 'print';
-        const borderColor = isPrint ? '#1a73e8' : '#ea4335';
-        const bgColor = isPrint
-            ? 'rgba(26, 115, 232, 0.1)'
-            : 'rgba(234, 67, 53, 0.1)';
-        const actionText = isPrint ? 'Print' : 'Hide';
-        const iconType = selectionType;
-
-        state = {
+        const state = {
             active: true,
             selectionType: selectionType, // 'print' or 'hide'
             mode: 'hovering', // 'hovering' or 'selecting'
-            selectionMode: 'smart', // 'smart' or 'direct'
+            selectionMode: 'smart', // 'smart' (find best container) or 'direct' (select exact element)
             hoveredElement: null,
             selectedElement: null,
-            selectionHistory: [],
-            colors: { borderColor, bgColor },
-            actionText,
-            iconType,
+            selectionHistory: [], // Track parent chain for stepping back down
             ui: {
                 overlay: null,
                 tooltip: null,
                 controlPanel: null,
             },
-            listeners: {},
         };
 
         window.__smartDivPrinter = {
             active: true,
-            cleanup: deactivate,
+            cleanup: () => deactivate(state),
         };
 
-        activate();
+        activate(state);
     }
 
-    function activate() {
+    function activate(state) {
         // Create UI
-        state.ui.overlay = createOverlay();
-        state.ui.tooltip = createTooltip();
-        state.ui.controlPanel = createControlPanel();
+        state.ui.overlay = createOverlay(state);
+        state.ui.tooltip = createTooltip(state);
+        state.ui.controlPanel = createControlPanel(state);
 
         document.documentElement.appendChild(state.ui.overlay);
         document.documentElement.appendChild(state.ui.tooltip);
         document.documentElement.appendChild(state.ui.controlPanel);
 
         // Attach event listeners
-        state.listeners.mouseMove = (e) => onMouseMove(e);
-        state.listeners.mouseDown = (e) => onMouseDown(e);
-        state.listeners.click = (e) => onClick(e);
-        state.listeners.keyDown = (e) => onKeyDown(e);
-        state.listeners.scroll = () => onScroll();
-
-        document.addEventListener('mousemove', state.listeners.mouseMove, true);
-        document.addEventListener('mousedown', state.listeners.mouseDown, true);
-        document.addEventListener('click', state.listeners.click, true);
-        document.addEventListener('keydown', state.listeners.keyDown, true);
-        document.addEventListener('scroll', state.listeners.scroll, true);
+        document.addEventListener('mousemove', (e) => onMouseMove(e, state), true);
+        document.addEventListener('mousedown', (e) => onMouseDown(e, state), true);
+        document.addEventListener('click', (e) => onClick(e, state), true);
+        document.addEventListener('keydown', (e) => onKeyDown(e, state), true);
+        document.addEventListener('scroll', () => onScroll(state), true);
 
         // Visual feedback
         document.body.style.cursor = 'crosshair';
-    }
-
-    function deactivate() {
-        if (!state || !state.active) return;
-
-        state.active = false;
-
-        // Remove event listeners
-        if (state.listeners.mouseMove)
-            document.removeEventListener(
-                'mousemove',
-                state.listeners.mouseMove,
-                true,
-            );
-        if (state.listeners.mouseDown)
-            document.removeEventListener(
-                'mousedown',
-                state.listeners.mouseDown,
-                true,
-            );
-        if (state.listeners.click)
-            document.removeEventListener('click', state.listeners.click, true);
-        if (state.listeners.keyDown)
-            document.removeEventListener(
-                'keydown',
-                state.listeners.keyDown,
-                true,
-            );
-        if (state.listeners.scroll)
-            document.removeEventListener(
-                'scroll',
-                state.listeners.scroll,
-                true,
-            );
-
-        // Remove UI
-        state.ui.overlay?.remove();
-        state.ui.tooltip?.remove();
-        state.ui.controlPanel?.remove();
-
-        // Restore cursor
-        document.body.style.cursor = '';
-
-        // Clear global reference
-        window.__smartDivPrinter = null;
-        state = null;
     }
 
     // ===========================
     // UI Components
     // ===========================
 
-    function createOverlay() {
+    function createOverlay(state) {
+        const isPrint = state.selectionType === 'print';
+        const borderColor = isPrint ? '#1a73e8' : '#ea4335';
+        const bgColor = isPrint ? 'rgba(26, 115, 232, 0.1)' : 'rgba(234, 67, 53, 0.1)';
+        
         const overlay = document.createElement('div');
         overlay.setAttribute('data-smart-printer-overlay', 'true');
         Object.assign(overlay.style, {
             position: 'fixed',
             zIndex: '2147483646',
             pointerEvents: 'none',
-            border: `2px solid ${state.colors.borderColor}`,
-            background: state.colors.bgColor,
-            boxShadow: `0 0 0 1px ${state.colors.borderColor}40, 0 2px 8px rgba(0,0,0,0.15)`,
+            border: `2px solid ${borderColor}`,
+            background: bgColor,
+            boxShadow:
+                '0 0 0 1px rgba(26, 115, 232, 0.2), 0 2px 8px rgba(0,0,0,0.15)',
             borderRadius: '4px',
             boxSizing: 'border-box',
             display: 'none',
@@ -258,25 +188,16 @@
     }
 
     function createTooltip() {
-        const icon =
-            state.iconType === 'print'
-                ? `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polyline points="6 9 6 2 18 2 18 9"></polyline>
-                <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
-                <rect x="6" y="14" width="12" height="8"></rect>
-              </svg>`
-                : `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                <circle cx="12" cy="12" r="3"></circle>
-                <line x1="1" y1="1" x2="23" y2="23"></line>
-              </svg>`;
-
         const tooltip = document.createElement('div');
         tooltip.setAttribute('data-smart-printer-tooltip', 'true');
         tooltip.innerHTML = `
       <div style="display: flex; flex-direction: column; gap: 8px;">
         <div style="display: flex; align-items: center; gap: 8px;">
-          ${icon}
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="6 9 6 2 18 2 18 9"></polyline>
+            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+            <rect x="6" y="14" width="12" height="8"></rect>
+          </svg>
           <span><strong>Click</strong> to select • <strong>Esc</strong> to cancel</span>
         </div>
         <button id="smart-printer-toggle-mode" style="padding: 4px 8px; border: 1px solid rgba(255,255,255,0.3); border-radius: 4px; background: rgba(255,255,255,0.1); color: #fff; font: 11px system-ui, sans-serif; cursor: pointer; transition: all 0.2s; pointer-events: auto;">
@@ -313,12 +234,43 @@
         return tooltip;
     }
 
-    function createControlPanel() {
-        const buttonColor =
-            state.selectionType === 'print' ? '#1a73e8' : '#ea4335';
-        const buttonHoverColor =
-            state.selectionType === 'print' ? '#1557b0' : '#d33426';
+    function updateTooltipMode() {
+        if (!state.ui.tooltip) return;
+        const label = state.ui.tooltip.querySelector(
+            '#smart-printer-mode-label',
+        );
+        if (label) {
+            label.textContent =
+                state.selectionMode === 'smart' ? 'Smart' : 'Direct';
+        }
+    }
 
+    function toggleSelectionMode() {
+        state.selectionMode =
+            state.selectionMode === 'smart' ? 'direct' : 'smart';
+        updateTooltipMode();
+
+        // Show feedback
+        const label = state.ui.tooltip?.querySelector(
+            '#smart-printer-mode-label',
+        );
+        if (label) {
+            const originalText = label.textContent;
+            label.textContent =
+                state.selectionMode === 'smart' ? '✓ Smart' : '✓ Direct';
+            setTimeout(() => {
+                label.textContent = originalText;
+            }, 500);
+        }
+
+        // Re-evaluate current hover if there is one
+        if (state.hoveredElement) {
+            const event = new MouseEvent('mousemove', { bubbles: true });
+            document.dispatchEvent(event);
+        }
+    }
+
+    function createControlPanel() {
         const panel = document.createElement('div');
         panel.setAttribute('data-smart-printer-panel', 'true');
         panel.innerHTML = `
@@ -338,8 +290,8 @@
           </button>
         </div>
         <div style="display: flex; gap: 8px;">
-          <button id="smart-printer-action" style="flex: 1; padding: 10px 16px; border: none; border-radius: 4px; background: ${buttonColor}; color: #fff; font: 14px system-ui, sans-serif; font-weight: 600; cursor: pointer;">
-            ${state.actionText} This
+          <button id="smart-printer-print" style="flex: 1; padding: 10px 16px; border: none; border-radius: 4px; background: #1a73e8; color: #fff; font: 14px system-ui, sans-serif; font-weight: 600; cursor: pointer;">
+            Print This
           </button>
           <button id="smart-printer-cancel" style="padding: 10px 16px; border: 1px solid #5f6368; border-radius: 4px; background: #fff; color: #202124; font: 13px system-ui, sans-serif; cursor: pointer;">
             Cancel
@@ -366,21 +318,15 @@
         });
 
         // Add event listeners
-        const actionBtn = panel.querySelector('#smart-printer-action');
-        actionBtn.addEventListener('click', confirmAction);
-        actionBtn.addEventListener('mouseenter', function () {
-            this.style.background = buttonHoverColor;
-        });
-        actionBtn.addEventListener('mouseleave', function () {
-            this.style.background = buttonColor;
-        });
-
         panel
             .querySelector('#smart-printer-step-up')
             .addEventListener('click', stepUp);
         panel
             .querySelector('#smart-printer-step-down')
             .addEventListener('click', stepDown);
+        panel
+            .querySelector('#smart-printer-print')
+            .addEventListener('click', confirmPrint);
         panel
             .querySelector('#smart-printer-cancel')
             .addEventListener('click', cancelSelection);
@@ -389,7 +335,7 @@
     }
 
     function updateControlPanel() {
-        if (!state?.ui.controlPanel) return;
+        if (!state.ui.controlPanel) return;
 
         const element = state.selectedElement;
         if (!element) return;
@@ -435,12 +381,12 @@
     function findBestPrintableElement(target) {
         if (!target || !(target instanceof Element)) return null;
 
-        // Don't select our own UI elements or markers
+        // Don't select our own UI elements
         if (
             target.hasAttribute('data-smart-printer-overlay') ||
             target.hasAttribute('data-smart-printer-tooltip') ||
             target.hasAttribute('data-smart-printer-panel') ||
-            target.hasAttribute('data-smart-printer-marker')
+            target.hasAttribute('data-smart-printer-banner')
         ) {
             return null;
         }
@@ -562,14 +508,17 @@
     function isUIElement(element) {
         if (!element) return false;
 
-        // Check if element is our UI or inside it
+        // Check if element is our UI or inside it (tooltip or control panel)
         while (element) {
             if (element.hasAttribute) {
                 if (
                     element.hasAttribute('data-smart-printer-panel') ||
-                    element.hasAttribute('data-smart-printer-tooltip') ||
-                    element.id === 'smart-printer-toggle-mode'
+                    element.hasAttribute('data-smart-printer-tooltip')
                 ) {
+                    return true;
+                }
+                // Also check for specific button IDs
+                if (element.id === 'smart-printer-toggle-mode') {
                     return true;
                 }
             }
@@ -579,7 +528,7 @@
     }
 
     function onMouseMove(event) {
-        if (!state || state.mode !== 'hovering') return;
+        // Allow UI interactions
         if (isUIElement(event.target)) return;
 
         event.preventDefault();
@@ -596,15 +545,16 @@
     }
 
     function onMouseDown(event) {
-        if (!state) return;
+        // Allow UI interactions
         if (isUIElement(event.target)) return;
 
+        // Prevent any mouse down actions including starting drag/scroll
         event.preventDefault();
         event.stopPropagation();
     }
 
     function onClick(event) {
-        if (!state) return;
+        // Allow UI interactions
         if (isUIElement(event.target)) return;
 
         event.preventDefault();
@@ -612,6 +562,7 @@
         event.stopImmediatePropagation();
 
         if (state.mode === 'hovering') {
+            // Enter selection mode
             const elementToSelect =
                 state.hoveredElement ||
                 (event.target instanceof Element ? event.target : null);
@@ -620,11 +571,10 @@
                 enterSelectionMode(elementToSelect);
             }
         }
+        // If in 'selecting' mode, clicks are handled by control panel buttons
     }
 
     function onKeyDown(event) {
-        if (!state) return;
-
         if (event.key === 'Escape') {
             if (state.mode === 'selecting') {
                 cancelSelection();
@@ -632,6 +582,7 @@
                 deactivate();
             }
         } else if (state.mode === 'selecting') {
+            // Keyboard shortcuts during selection
             if (event.key === 'ArrowUp') {
                 event.preventDefault();
                 stepUp();
@@ -640,65 +591,16 @@
                 stepDown();
             } else if (event.key === 'Enter') {
                 event.preventDefault();
-                confirmAction();
+                confirmPrint();
             }
         }
-    }
-
-    function onScroll() {
-        if (!state) return;
-        if (state.mode === 'hovering' && state.hoveredElement) {
-            updateOverlay(state.hoveredElement);
-        } else if (state.mode === 'selecting' && state.selectedElement) {
-            updateOverlay(state.selectedElement);
-        }
-    }
-
-    function updateOverlay(element) {
-        if (!state || !element || !state.ui.overlay) return;
-
-        const rect = element.getBoundingClientRect();
-        Object.assign(state.ui.overlay.style, {
-            display: 'block',
-            left: `${rect.left}px`,
-            top: `${rect.top}px`,
-            width: `${rect.width}px`,
-            height: `${rect.height}px`,
-        });
     }
 
     // ===========================
     // Selection Mode Functions
     // ===========================
 
-    function toggleSelectionMode() {
-        if (!state) return;
-
-        state.selectionMode =
-            state.selectionMode === 'smart' ? 'direct' : 'smart';
-
-        const label = state.ui.tooltip?.querySelector(
-            '#smart-printer-mode-label',
-        );
-        if (label) {
-            const newText =
-                state.selectionMode === 'smart' ? 'Smart' : 'Direct';
-            label.textContent = `✓ ${newText}`;
-            setTimeout(() => {
-                label.textContent = newText;
-            }, 500);
-        }
-
-        // Re-evaluate current hover
-        if (state.hoveredElement) {
-            const event = new MouseEvent('mousemove', { bubbles: true });
-            document.dispatchEvent(event);
-        }
-    }
-
     function enterSelectionMode(element) {
-        if (!state) return;
-
         state.mode = 'selecting';
         state.selectedElement = element;
         state.selectionHistory = [];
@@ -715,16 +617,16 @@
 
         // Change overlay style to indicate selection
         if (state.ui.overlay) {
-            state.ui.overlay.style.border = `3px solid ${state.colors.borderColor}`;
-            state.ui.overlay.style.background = state.colors.bgColor.replace(
-                '0.1',
-                '0.15',
-            );
+            state.ui.overlay.style.border = '3px solid #1a73e8';
+            state.ui.overlay.style.background = 'rgba(26, 115, 232, 0.15)';
         }
+
+        // Stop listening to mouse move
+        document.removeEventListener('mousemove', onMouseMove, true);
     }
 
     function stepUp() {
-        if (!state || !state.selectedElement) return;
+        if (!state.selectedElement) return;
 
         const parent = state.selectedElement.parentElement;
         if (
@@ -735,197 +637,86 @@
             return;
         }
 
+        // Save current element to history
         state.selectionHistory.push(state.selectedElement);
+
+        // Move to parent
         state.selectedElement = parent;
         updateOverlay(parent);
         updateControlPanel();
     }
 
     function stepDown() {
-        if (!state || state.selectionHistory.length === 0) return;
+        if (state.selectionHistory.length === 0) return;
 
+        // Pop from history and move back down
         state.selectedElement = state.selectionHistory.pop();
         updateOverlay(state.selectedElement);
         updateControlPanel();
     }
 
-    async function confirmAction() {
-        if (!state || !state.selectedElement) return;
+    function confirmPrint() {
+        if (!state.selectedElement) return;
 
-        const element = state.selectedElement;
-
-        if (state.selectionType === 'print') {
-            // Print mode: print the selected element
-            deactivate();
-            printElement(element);
-        } else {
-            // Hide mode: save to hidden elements
-            const selector = generateSelector(element);
-            await saveHiddenElement(element, selector);
-
-            // Add marker to the element
-            element.setAttribute('data-smart-printer-hidden', 'true');
-            addRedMarker(element);
-
-            // Show feedback
-            showFeedback('Element marked as hidden from print!', 'success');
-
-            // Deactivate after short delay
-            setTimeout(() => deactivate(), 800);
-        }
-    }
-
-    async function saveHiddenElement(element, selector) {
-        try {
-            const hostname = window.location.hostname;
-            const result = await chrome.storage.local.get('hiddenElements');
-            const allHidden = result.hiddenElements || {};
-
-            if (!allHidden[hostname]) {
-                allHidden[hostname] = [];
-            }
-
-            // Check if selector already exists
-            const exists = allHidden[hostname].some(
-                (item) => item.selector === selector,
-            );
-
-            if (!exists) {
-                allHidden[hostname].push({
-                    selector: selector,
-                    description: getElementDescription(element),
-                    addedAt: Date.now(),
-                    enabled: true,
-                });
-
-                await chrome.storage.local.set({ hiddenElements: allHidden });
-            }
-        } catch (error) {
-            console.error('Error saving hidden element:', error);
-        }
+        const elementToPrint = state.selectedElement;
+        deactivate();
+        printElement(elementToPrint);
     }
 
     function cancelSelection() {
-        if (!state || state.mode !== 'selecting') return;
+        if (state.mode === 'selecting') {
+            // Return to hovering mode
+            state.mode = 'hovering';
+            state.selectedElement = null;
+            state.selectionHistory = [];
 
-        state.mode = 'hovering';
-        state.selectedElement = null;
-        state.selectionHistory = [];
+            // Show tooltip, hide control panel
+            if (state.ui.tooltip) state.ui.tooltip.style.display = 'block';
+            if (state.ui.controlPanel)
+                state.ui.controlPanel.style.display = 'none';
 
-        if (state.ui.tooltip) state.ui.tooltip.style.display = 'block';
-        if (state.ui.controlPanel) state.ui.controlPanel.style.display = 'none';
+            // Restore overlay style
+            if (state.ui.overlay) {
+                state.ui.overlay.style.border = '2px solid #1a73e8';
+                state.ui.overlay.style.background = 'rgba(26, 115, 232, 0.1)';
+                state.ui.overlay.style.display = 'none';
+            }
 
-        if (state.ui.overlay) {
-            state.ui.overlay.style.border = `2px solid ${state.colors.borderColor}`;
-            state.ui.overlay.style.background = state.colors.bgColor;
-            state.ui.overlay.style.display = 'none';
+            // Resume listening to mouse move
+            document.addEventListener('mousemove', onMouseMove, true);
         }
     }
 
-    // ===========================
-    // Helper Functions
-    // ===========================
-
-    function generateSelector(element) {
-        // Prefer ID if it exists
-        if (element.id) {
-            return `#${CSS.escape(element.id)}`;
+    function onScroll() {
+        // Update overlay position during scroll
+        if (state.mode === 'hovering' && state.hoveredElement) {
+            updateOverlay(state.hoveredElement);
+        } else if (state.mode === 'selecting' && state.selectedElement) {
+            updateOverlay(state.selectedElement);
         }
-
-        // Use class names if they exist and are specific
-        if (element.className && typeof element.className === 'string') {
-            const classes = element.className
-                .trim()
-                .split(/\s+/)
-                .filter((c) => c);
-            if (classes.length > 0) {
-                const classSelector =
-                    '.' + classes.map((c) => CSS.escape(c)).join('.');
-                const matchingElements =
-                    document.querySelectorAll(classSelector);
-                if (matchingElements.length <= 5) {
-                    return classSelector;
-                }
-            }
-        }
-
-        // Fallback to nth-child approach
-        let path = [];
-        let current = element;
-
-        while (current && current !== document.body) {
-            let selector = current.tagName.toLowerCase();
-
-            if (current.id) {
-                selector = `#${CSS.escape(current.id)}`;
-                path.unshift(selector);
-                break;
-            }
-
-            let sibling = current;
-            let nth = 1;
-            while (sibling.previousElementSibling) {
-                sibling = sibling.previousElementSibling;
-                if (sibling.tagName === current.tagName) nth++;
-            }
-
-            if (nth > 1) {
-                selector += `:nth-of-type(${nth})`;
-            }
-
-            path.unshift(selector);
-            current = current.parentElement;
-        }
-
-        return path.join(' > ');
     }
 
-    function getElementDescription(element) {
-        if (element.id) return `#${element.id}`;
+    function updateOverlay(element) {
+        if (!element || !state.ui.overlay) return;
 
-        const tag = element.tagName.toLowerCase();
-        const classes =
-            element.className && typeof element.className === 'string'
-                ? element.className.trim().split(/\s+/).slice(0, 2).join('.')
-                : '';
-
-        let text = element.textContent?.trim().substring(0, 30) || '';
-        if (text.length === 30) text += '...';
-
-        if (classes) return `${tag}.${classes}`;
-        if (text) return `${tag}: "${text}"`;
-        return tag;
-    }
-
-    function showFeedback(message, type) {
-        const feedback = document.createElement('div');
-        feedback.textContent = message;
-        Object.assign(feedback.style, {
-            position: 'fixed',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            zIndex: '2147483647',
-            padding: '16px 24px',
-            borderRadius: '8px',
-            background: type === 'success' ? '#0d652d' : '#d93025',
-            color: '#fff',
-            font: '14px system-ui, sans-serif',
-            fontWeight: '600',
-            boxShadow: '0 4px 24px rgba(0,0,0,0.3)',
+        const rect = element.getBoundingClientRect();
+        Object.assign(state.ui.overlay.style, {
+            display: 'block',
+            left: `${rect.left}px`,
+            top: `${rect.top}px`,
+            width: `${rect.width}px`,
+            height: `${rect.height}px`,
         });
-
-        document.body.appendChild(feedback);
-        setTimeout(() => feedback.remove(), 2000);
     }
 
     // ===========================
-    // Print Functionality
+    // Print Window Generation
     // ===========================
 
     function printElement(sourceElement) {
         const clone = createPrintableClone(sourceElement);
         const pageTitle = document.title || 'Untitled';
+        const printTitle = pageTitle;
 
         // Save original content
         const originalBody = document.body.cloneNode(true);
@@ -933,7 +724,7 @@
         const originalHead = document.head.innerHTML;
 
         // Replace page content with print-ready version
-        document.title = pageTitle;
+        document.title = printTitle;
         document.body.innerHTML = '';
         document.body.style.cssText = '';
 
@@ -953,15 +744,20 @@
 
         // Handle print dialog
         const handleAfterPrint = () => {
+            // Restore original page
             document.title = originalTitle;
             document.head.innerHTML = originalHead;
             document.body.replaceWith(originalBody);
+
+            // Re-parse scripts to make page functional again
             window.location.reload();
         };
 
+        // Print and restore after
         setTimeout(() => {
             window.print();
 
+            // Listen for print dialog close
             if (window.matchMedia) {
                 const mediaQueryList = window.matchMedia('print');
                 const handlePrintChange = (mql) => {
@@ -970,132 +766,21 @@
                     }
                 };
 
+                // Modern browsers
                 if (mediaQueryList.addEventListener) {
                     mediaQueryList.addEventListener(
                         'change',
                         handlePrintChange,
                     );
                 } else {
+                    // Fallback
                     mediaQueryList.addListener(handlePrintChange);
                 }
             } else {
+                // Fallback: reload after a delay
                 window.addEventListener('afterprint', handleAfterPrint);
             }
         }, 100);
-    }
-
-    function createPrintableClone(source) {
-        prepareDynamicContent(source);
-        const clone = source.cloneNode(true);
-        inlineStyles(source, clone);
-        cleanForPrint(clone);
-        removeHiddenElements(clone);
-        return clone;
-    }
-
-    function removeHiddenElements(root) {
-        // Remove all elements marked as hidden from print
-        root.querySelectorAll('[data-smart-printer-hidden]').forEach((el) =>
-            el.remove(),
-        );
-    }
-
-    function prepareDynamicContent(root) {
-        root.querySelectorAll('canvas').forEach((canvas) => {
-            if (canvas.dataset.smartPrinterProcessed) return;
-
-            try {
-                const img = document.createElement('img');
-                img.src = canvas.toDataURL('image/png');
-                img.alt = canvas.getAttribute('aria-label') || 'Canvas content';
-                img.style.maxWidth = '100%';
-                img.style.height = 'auto';
-                canvas.dataset.smartPrinterProcessed = 'true';
-                canvas.after(img);
-            } catch (error) {
-                console.warn('Failed to convert canvas:', error);
-            }
-        });
-    }
-
-    function inlineStyles(sourceRoot, cloneRoot) {
-        const sourceElements = [
-            sourceRoot,
-            ...sourceRoot.querySelectorAll('*'),
-        ];
-        const cloneElements = [cloneRoot, ...cloneRoot.querySelectorAll('*')];
-
-        sourceElements.forEach((src, i) => {
-            const clone = cloneElements[i];
-            if (!clone || !(clone instanceof Element)) return;
-
-            const computed = getComputedStyle(src);
-
-            // Handle scrollable containers
-            const isScrollable =
-                src.scrollHeight > src.clientHeight + 2 ||
-                src.scrollWidth > src.clientWidth + 2;
-
-            if (isScrollable) {
-                clone.style.setProperty('overflow', 'visible', 'important');
-                clone.style.setProperty('height', 'auto', 'important');
-                clone.style.setProperty('max-height', 'none', 'important');
-            }
-
-            // Fix fixed/sticky positioning
-            if (['fixed', 'sticky'].includes(computed.position)) {
-                clone.style.setProperty('position', 'static', 'important');
-            }
-
-            // Preserve form values
-            copyFormValues(src, clone);
-        });
-    }
-
-    function copyFormValues(src, clone) {
-        const tag = src.tagName?.toLowerCase();
-
-        if (tag === 'textarea') {
-            clone.textContent = src.value;
-        } else if (tag === 'input') {
-            clone.setAttribute('value', src.value || '');
-            if (src.checked) clone.setAttribute('checked', 'checked');
-        } else if (tag === 'select' && src.options && clone.options) {
-            Array.from(src.options).forEach((opt, i) => {
-                if (clone.options[i]) {
-                    clone.options[i].selected = opt.selected;
-                }
-            });
-        }
-    }
-
-    function cleanForPrint(root) {
-        root.querySelectorAll(
-            'script, style, link[rel="stylesheet"], noscript',
-        ).forEach((el) => el.remove());
-        root.querySelectorAll('[hidden], [aria-hidden="true"]').forEach((el) =>
-            el.remove(),
-        );
-
-        root.querySelectorAll('canvas[data-smart-printer-processed]').forEach(
-            (el) => el.remove(),
-        );
-
-        root.querySelectorAll('*').forEach((el) => {
-            el.removeAttribute('id');
-
-            if (el.tagName?.toLowerCase() === 'a' && el.hasAttribute('href')) {
-                try {
-                    const absoluteURL = new URL(
-                        el.getAttribute('href'),
-                        window.location.href,
-                    );
-                    el.setAttribute('href', absoluteURL.href);
-                } catch (e) {
-                    // Invalid URL, leave as-is
-                }
-            }
-        });
     }
 
     function createPrintStyles() {
@@ -1145,8 +830,182 @@
         toolbar.innerHTML = `
             <button class="primary" onclick="window.print()">Print / Save as PDF</button>
             <button onclick="window.location.reload()">Cancel</button>
-            <span style="color: #5f6368;">Clean print preview (hidden elements removed)</span>
+            <span style="color: #5f6368;">Clean print preview</span>
         `;
         return toolbar;
     }
+
+    function createPrintableClone(source) {
+        // Pre-process dynamic content
+        prepareDynamicContent(source);
+
+        // Clone the element
+        const clone = source.cloneNode(true);
+
+        // Apply computed styles inline
+        inlineStyles(source, clone);
+
+        // Clean up for printing
+        cleanForPrint(clone);
+
+        return clone;
+    }
+
+    function prepareDynamicContent(root) {
+        // Convert canvas elements to images
+        root.querySelectorAll('canvas').forEach((canvas) => {
+            if (canvas.dataset.smartPrinterProcessed) return;
+
+            try {
+                const img = document.createElement('img');
+                img.src = canvas.toDataURL('image/png');
+                img.alt = canvas.getAttribute('aria-label') || 'Canvas content';
+                img.style.maxWidth = '100%';
+                img.style.height = 'auto';
+                canvas.dataset.smartPrinterProcessed = 'true';
+                canvas.after(img);
+            } catch (error) {
+                console.warn('Failed to convert canvas:', error);
+            }
+        });
+    }
+
+    function inlineStyles(sourceRoot, cloneRoot) {
+        const sourceElements = [
+            sourceRoot,
+            ...sourceRoot.querySelectorAll('*'),
+        ];
+        const cloneElements = [cloneRoot, ...cloneRoot.querySelectorAll('*')];
+
+        sourceElements.forEach((src, i) => {
+            const clone = cloneElements[i];
+            if (!clone || !(clone instanceof Element)) return;
+
+            const computed = getComputedStyle(src);
+
+            // Handle scrollable containers - expand them to show full content
+            const isScrollable =
+                src.scrollHeight > src.clientHeight + 2 ||
+                src.scrollWidth > src.clientWidth + 2;
+
+            if (isScrollable) {
+                clone.style.setProperty('overflow', 'visible', 'important');
+                clone.style.setProperty('height', 'auto', 'important');
+                clone.style.setProperty('max-height', 'none', 'important');
+            }
+
+            // Fix fixed/sticky positioning for print
+            if (['fixed', 'sticky'].includes(computed.position)) {
+                clone.style.setProperty('position', 'static', 'important');
+            }
+
+            // Preserve form values
+            copyFormValues(src, clone);
+        });
+    }
+
+    function copyFormValues(src, clone) {
+        const tag = src.tagName?.toLowerCase();
+
+        if (tag === 'textarea') {
+            clone.textContent = src.value;
+        } else if (tag === 'input') {
+            clone.setAttribute('value', src.value || '');
+            if (src.checked) clone.setAttribute('checked', 'checked');
+        } else if (tag === 'select' && src.options && clone.options) {
+            Array.from(src.options).forEach((opt, i) => {
+                if (clone.options[i]) {
+                    clone.options[i].selected = opt.selected;
+                }
+            });
+        }
+    }
+
+    function cleanForPrint(root) {
+        // Remove scripts, styles, and hidden elements
+        root.querySelectorAll(
+            'script, style, link[rel="stylesheet"], noscript',
+        ).forEach((el) => el.remove());
+        root.querySelectorAll('[hidden], [aria-hidden="true"]').forEach((el) =>
+            el.remove(),
+        );
+
+        // Clean up canvas placeholders
+        root.querySelectorAll('canvas[data-smart-printer-processed]').forEach(
+            (el) => el.remove(),
+        );
+
+        // Remove IDs to avoid conflicts
+        root.querySelectorAll('*').forEach((el) => {
+            el.removeAttribute('id');
+
+            // Ensure links are absolute
+            if (el.tagName?.toLowerCase() === 'a' && el.hasAttribute('href')) {
+                try {
+                    const absoluteURL = new URL(
+                        el.getAttribute('href'),
+                        window.location.href,
+                    );
+                    el.setAttribute('href', absoluteURL.href);
+                } catch (e) {
+                    // Invalid URL, leave as-is
+                }
+            }
+        });
+    }
+
+    // ===========================
+    // Lifecycle
+    // ===========================
+
+    function activate() {
+        // Create UI
+        state.ui.overlay = createOverlay();
+        state.ui.tooltip = createTooltip();
+        state.ui.controlPanel = createControlPanel();
+
+        document.documentElement.appendChild(state.ui.overlay);
+        document.documentElement.appendChild(state.ui.tooltip);
+        document.documentElement.appendChild(state.ui.controlPanel);
+
+        // Attach event listeners
+        document.addEventListener('mousemove', onMouseMove, true);
+        document.addEventListener('mousedown', onMouseDown, true);
+        document.addEventListener('click', onClick, true);
+        document.addEventListener('keydown', onKeyDown, true);
+        document.addEventListener('scroll', onScroll, true);
+
+        // Visual feedback
+        document.body.style.cursor = 'crosshair';
+    }
+
+    function deactivate() {
+        if (!state.active) return;
+
+        state.active = false;
+
+        // Remove event listeners
+        document.removeEventListener('mousemove', onMouseMove, true);
+        document.removeEventListener('mousedown', onMouseDown, true);
+        document.removeEventListener('click', onClick, true);
+        document.removeEventListener('keydown', onKeyDown, true);
+        document.removeEventListener('scroll', onScroll, true);
+
+        // Remove UI
+        state.ui.overlay?.remove();
+        state.ui.tooltip?.remove();
+        state.ui.controlPanel?.remove();
+
+        // Restore cursor
+        document.body.style.cursor = '';
+
+        // Clear global reference
+        window.__smartDivPrinter = null;
+    }
+
+    // ===========================
+    // Initialize
+    // ===========================
+
+    activate();
 })();

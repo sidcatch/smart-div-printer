@@ -1,10 +1,10 @@
 {
     "manifest_version": 3,
     "name": "Smart Div Printer",
-    "version": "1.0.0",
-    "description": "Visually select any element on a webpage and print it in a clean layout. Toggle between smart container detection and direct element selection. No popups required.",
+    "version": "2.0.0",
+    "description": "Visually select elements to print or hide from print. Choose between printing sections in clean layout or marking elements to exclude from all prints.",
     "author": "Your Name",
-    "permissions": ["activeTab", "scripting"],
+    "permissions": ["activeTab", "scripting", "storage"],
     "host_permissions": ["<all_urls>"],
     "icons": {
         "16": "icon16.png",
@@ -22,7 +22,8 @@
             "48": "icon48.png",
             "128": "icon128.png"
         },
-        "default_title": "Smart Div Printer - Click to select a section to print"
+        "default_title": "Smart Div Printer - Select for print or hide",
+        "default_popup": "popup.html"
     },
     "content_security_policy": {
         "extension_pages": "script-src 'self'; object-src 'self'"
