@@ -139,7 +139,7 @@
             active: true,
             selectionType: selectionType, // 'print' or 'hide'
             mode: 'hovering', // 'hovering' or 'selecting'
-            selectionMode: 'smart', // 'smart' or 'direct'
+            selectionMode: 'direct', // 'smart' or 'direct'
             hoveredElement: null,
             selectedElement: null,
             selectionHistory: [],
@@ -280,7 +280,7 @@
           <span><strong>Click</strong> to select • <strong>Esc</strong> to cancel</span>
         </div>
         <button id="smart-printer-toggle-mode" style="padding: 4px 8px; border: 1px solid rgba(255,255,255,0.3); border-radius: 4px; background: rgba(255,255,255,0.1); color: #fff; font: 11px system-ui, sans-serif; cursor: pointer; transition: all 0.2s; pointer-events: auto;">
-          Mode: <strong id="smart-printer-mode-label">Smart</strong> (Click to toggle)
+          Mode: <strong id="smart-printer-mode-label">Direct</strong> (Click to toggle)
         </button>
       </div>
     `;
