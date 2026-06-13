@@ -1,0 +1,17 @@
+{
+  "name": "smart-div-printer",
+  "version": "2.0.0",
+  "description": "Chrome extension for selective printing and element hiding",
+  "scripts": {
+    "build": "node build.js",
+    "clean": "node -e \"require('fs').rmSync('dist', {recursive: true, force: true}); require('fs').rmSync('smart-div-printer.zip', {force: true})\"",
+    "prebuild": "npm run clean"
+  },
+  "devDependencies": {
+    "terser": "^5.31.0",
+    "clean-css": "^5.3.3"
+  },
+  "keywords": ["chrome-extension", "print", "pdf"],
+  "author": "Your Name",
+  "license": "MIT"
+}
