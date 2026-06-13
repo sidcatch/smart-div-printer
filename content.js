@@ -16,6 +16,12 @@
     init();
 
     async function init() {
+        // Prevent multiple initializations
+        if (window.__smartDivPrinterInitialized) {
+            return;
+        }
+        window.__smartDivPrinterInitialized = true;
+
         // Apply hidden elements markers when page loads
         await applyHiddenElements();
 
@@ -124,6 +130,8 @@
         // Toggle off if already active
         if (window.__smartDivPrinter?.active) {
             window.__smartDivPrinter.cleanup();
+            // Small delay to ensure cleanup is complete before starting again
+            setTimeout(() => startSelectionMode(selectionType), 50);
             return;
         }
 

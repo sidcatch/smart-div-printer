@@ -140,11 +140,25 @@ async function startSelection(mode) {
             currentWindow: true,
         });
 
-        // Inject content script
-        await chrome.scripting.executeScript({
-            target: { tabId: tab.id },
-            files: ['content.js'],
-        });
+        // Check if content script is already injected
+        let isInjected = false;
+        try {
+            const [result] = await chrome.scripting.executeScript({
+                target: { tabId: tab.id },
+                func: () => typeof window.__smartDivPrinter !== 'undefined',
+            });
+            isInjected = result?.result;
+        } catch (e) {
+            // Script not injected yet
+        }
+
+        // Only inject if not already present
+        if (!isInjected) {
+            await chrome.scripting.executeScript({
+                target: { tabId: tab.id },
+                files: ['content.js'],
+            });
+        }
 
         // Send message to start selection with specified mode
         await chrome.tabs.sendMessage(tab.id, {
