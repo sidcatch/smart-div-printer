@@ -45,3 +45,15 @@ This extension does not execute any remotely hosted code. All JavaScript ships i
 ```
 No user data is collected, transmitted, or shared with any third party. All data (the list of hidden element selectors per site, and user setting toggles) is stored locally on-device via chrome.storage.local and is only accessible to this extension.
 ```
+
+## Test instructions
+
+```
+No account, login, or backend is required to test this extension.
+
+1. Install the extension and open any regular webpage (not chrome:// or the Chrome Web Store).
+2. Click the extension's toolbar icon to open the popup.
+3. Click "Select for PDF", then hover over the page — a highlight overlay follows the cursor. Click an element to select it, then click the on-screen Print button (or press Enter) to open the print preview with only that element's content.
+4. Reopen the popup, click "Select to Hide from Print", hover and click an element, then confirm — the element gets a red dashed border and is added to the "Hidden from Print" list in the popup. Reload the page and print (Ctrl/Cmd+P) to confirm it no longer appears.
+5. In the popup, expand "Hidden from Print" to view, disable, or delete the entry you just created.
+```

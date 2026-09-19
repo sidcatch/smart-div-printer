@@ -47,6 +47,7 @@
     - [ ] Justification for host permissions (`<all_urls>`)
     - [ ] Privacy policy URL
     - [ ] Data usage disclosures / certifications
+    - [ ] Test instructions (paste from [PERMISSIONS_JUSTIFICATION.md](./PERMISSIONS_JUSTIFICATION.md), if the dashboard shows this field)
 - [ ] **Distribution tab** — choose visibility: Public, Unlisted, or Private (trusted testers), and select countries/regions if restricting availability.
 
 ## 6. Submit
