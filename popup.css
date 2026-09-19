@@ -128,6 +128,41 @@ body {
     margin-bottom: 12px;
 }
 
+.section-header-toggle {
+    width: 100%;
+    background: none;
+    border: none;
+    padding: 4px 0;
+    cursor: pointer;
+    font: inherit;
+    text-align: left;
+}
+
+.section-header-toggle:hover .section-title {
+    color: #1a73e8;
+}
+
+.section-toggle-icon {
+    color: #5f6368;
+    flex-shrink: 0;
+    transition: transform 0.2s;
+}
+
+.section-header-toggle[aria-expanded='true'] .section-toggle-icon {
+    transform: rotate(90deg);
+}
+
+.section-header-actions {
+    display: flex;
+    justify-content: flex-end;
+    min-height: 20px;
+    margin-bottom: 8px;
+}
+
+.section-body {
+    margin-top: 12px;
+}
+
 .section-title {
     font-size: 14px;
     font-weight: 600;
@@ -208,6 +243,7 @@ body {
     align-items: flex-start;
     gap: 10px;
     flex: 1;
+    min-width: 0;
 }
 
 /* Checkbox */

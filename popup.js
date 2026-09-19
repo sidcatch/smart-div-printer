@@ -52,6 +52,16 @@ function updateRemoveParentAlignmentRowState(preserveParentStyles) {
     row.classList.toggle('settings-row-disabled', !preserveParentStyles);
 }
 
+// Collapsed by default; toggles the hidden-elements list visibility
+function toggleHiddenSection() {
+    const toggle = document.getElementById('hiddenSectionToggle');
+    const body = document.getElementById('hiddenSectionBody');
+    const expanded = toggle.getAttribute('aria-expanded') === 'true';
+
+    toggle.setAttribute('aria-expanded', String(!expanded));
+    body.hidden = expanded;
+}
+
 // Load current site information
 async function loadCurrentSite() {
     try {
@@ -170,6 +180,9 @@ function attachEventListeners() {
         .getElementById('selectHideBtn')
         .addEventListener('click', () => startSelection('hide'));
     document.getElementById('clearAllBtn').addEventListener('click', clearAll);
+    document
+        .getElementById('hiddenSectionToggle')
+        .addEventListener('click', toggleHiddenSection);
     document
         .getElementById('skipPrintWarningCheckbox')
         .addEventListener('change', async (event) => {

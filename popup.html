@@ -68,41 +68,62 @@
             </div>
 
             <div class="content">
-                <div class="section-header">
+                <button
+                    class="section-header section-header-toggle"
+                    id="hiddenSectionToggle"
+                    aria-expanded="false"
+                >
                     <h2 class="section-title">
                         Hidden from Print (<span id="hiddenCount">0</span>)
                     </h2>
-                    <button
-                        class="btn-text"
-                        id="clearAllBtn"
-                        style="display: none"
-                    >
-                        Clear All
-                    </button>
-                </div>
-
-                <div id="emptyState" class="empty-state">
                     <svg
-                        width="48"
-                        height="48"
+                        class="section-toggle-icon"
+                        id="hiddenSectionIcon"
+                        width="16"
+                        height="16"
                         viewBox="0 0 24 24"
                         fill="none"
                         stroke="currentColor"
                         stroke-width="2"
                     >
-                        <path
-                            d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"
-                        ></path>
-                        <circle cx="12" cy="12" r="3"></circle>
-                        <line x1="1" y1="1" x2="23" y2="23"></line>
+                        <polyline points="9 18 15 12 9 6"></polyline>
                     </svg>
-                    <p>No elements hidden from print on this site</p>
-                    <p class="empty-state-hint">
-                        Use "Select to Hide" to mark elements
-                    </p>
-                </div>
+                </button>
 
-                <div id="hiddenList" class="hidden-list"></div>
+                <div id="hiddenSectionBody" class="section-body" hidden>
+                    <div class="section-header-actions">
+                        <button
+                            class="btn-text"
+                            id="clearAllBtn"
+                            style="display: none"
+                        >
+                            Clear All
+                        </button>
+                    </div>
+
+                    <div id="emptyState" class="empty-state">
+                        <svg
+                            width="48"
+                            height="48"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                        >
+                            <path
+                                d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"
+                            ></path>
+                            <circle cx="12" cy="12" r="3"></circle>
+                            <line x1="1" y1="1" x2="23" y2="23"></line>
+                        </svg>
+                        <p>No elements hidden from print on this site</p>
+                        <p class="empty-state-hint">
+                            Use "Select to Hide" to mark elements
+                        </p>
+                    </div>
+
+                    <div id="hiddenList" class="hidden-list"></div>
+                </div>
             </div>
 
             <div class="settings-section">
