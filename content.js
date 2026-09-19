@@ -1233,9 +1233,8 @@
         root.querySelectorAll(
             'script, style, link[rel="stylesheet"], noscript',
         ).forEach((el) => el.remove());
-        root.querySelectorAll('[hidden], [aria-hidden="true"]').forEach((el) =>
-            el.remove(),
-        );
+        // aria-hidden isn't a visibility signal (e.g. KaTeX marks its visible render aria-hidden); real CSS hiding is preserved via the untouched <head> stylesheets
+        root.querySelectorAll('[hidden]').forEach((el) => el.remove());
 
         root.querySelectorAll('canvas[data-smart-printer-processed]').forEach(
             (el) => el.remove(),
