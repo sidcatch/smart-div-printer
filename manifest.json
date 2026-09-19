@@ -2,7 +2,7 @@
     "manifest_version": 3,
     "name": "Smart Div Printer",
     "version": "2.0.0",
-    "description": "Visually select elements to print or hide from print. Choose between printing sections in clean layout or marking elements to exclude from all prints.",
+    "description": "Visually select elements to print or hide from print. Choose to print a clean section or exclude elements from all prints.",
     "author": "Your Name",
     "permissions": ["activeTab", "scripting", "storage"],
     "host_permissions": ["<all_urls>"],
