@@ -217,6 +217,10 @@ The extension works without icons, but you can add them for a better appearance:
 
 ## 🔧 Development
 
+### Publishing to the Chrome Web Store
+
+See [store-listing/](./store-listing/) for a complete submission kit: listing copy, permissions justification, privacy policy, data-safety questionnaire answers, and a step-by-step checklist.
+
 ### File Structure
 
 ```
