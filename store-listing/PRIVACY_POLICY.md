@@ -55,4 +55,4 @@ If this policy changes, the updated version will be published at the same URL wi
 
 ## Contact
 
-For privacy questions or concerns, contact: `<add your support email here>`.
+For privacy questions or concerns, contact: `flymangun@gmail.com`.
