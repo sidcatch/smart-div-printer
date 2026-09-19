@@ -1030,7 +1030,7 @@
 
     async function printElement(sourceElement) {
         const settings = await getPrintSettings();
-        const clone = createPrintableClone(sourceElement);
+        const clone = createPrintableClone(sourceElement, settings);
         const pageTitle = document.title || 'Untitled';
 
         // Replace page content with print-ready version
@@ -1065,14 +1065,21 @@
             const result = await chrome.storage.local.get([
                 'preserveParentStyles',
                 'removeParentAlignment',
+                'expandScrollableContainers',
             ]);
             return {
                 preserveParentStyles: result.preserveParentStyles !== false,
                 removeParentAlignment: !!result.removeParentAlignment,
+                expandScrollableContainers:
+                    result.expandScrollableContainers !== false,
             };
         } catch (error) {
             console.error('Error reading print settings:', error);
-            return { preserveParentStyles: true, removeParentAlignment: false };
+            return {
+                preserveParentStyles: true,
+                removeParentAlignment: false,
+                expandScrollableContainers: true,
+            };
         }
     }
 
@@ -1144,10 +1151,10 @@
         );
     }
 
-    function createPrintableClone(source) {
+    function createPrintableClone(source, settings) {
         prepareDynamicContent(source);
         const clone = source.cloneNode(true);
-        inlineStyles(source, clone);
+        inlineStyles(source, clone, settings);
         cleanForPrint(clone);
         removeHiddenElements(clone);
         return clone;
@@ -1178,7 +1185,7 @@
         });
     }
 
-    function inlineStyles(sourceRoot, cloneRoot) {
+    function inlineStyles(sourceRoot, cloneRoot, settings) {
         const sourceElements = [
             sourceRoot,
             ...sourceRoot.querySelectorAll('*'),
@@ -1191,10 +1198,19 @@
 
             const computed = getComputedStyle(src);
 
-            // Handle scrollable containers
+            // Only expand containers that actually clip overflow (e.g. KaTeX's vlists naturally have
+            // scrollHeight > clientHeight but stay visible, so they must be excluded via overflow check)
+            const clipsOverflow = ['hidden', 'auto', 'scroll', 'clip'].some(
+                (value) =>
+                    computed.overflow.includes(value) ||
+                    computed.overflowX === value ||
+                    computed.overflowY === value,
+            );
             const isScrollable =
-                src.scrollHeight > src.clientHeight + 2 ||
-                src.scrollWidth > src.clientWidth + 2;
+                settings?.expandScrollableContainers !== false &&
+                clipsOverflow &&
+                (src.scrollHeight > src.clientHeight + 2 ||
+                    src.scrollWidth > src.clientWidth + 2);
 
             if (isScrollable) {
                 clone.style.setProperty('overflow', 'visible', 'important');

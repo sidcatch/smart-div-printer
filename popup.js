@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     await loadHiddenElements();
     await loadSkipPrintWarningSetting();
     await loadPreserveParentStylesSettings();
+    await loadExpandScrollableContainersSetting();
     attachEventListeners();
 });
 
@@ -50,6 +51,23 @@ async function loadPreserveParentStylesSettings() {
 function updateRemoveParentAlignmentRowState(preserveParentStyles) {
     const row = document.getElementById('removeParentAlignmentRow');
     row.classList.toggle('settings-row-disabled', !preserveParentStyles);
+}
+
+// Load the expand-scrollable-containers preference (on by default)
+async function loadExpandScrollableContainersSetting() {
+    try {
+        const result = await chrome.storage.local.get(
+            'expandScrollableContainers',
+        );
+        document.getElementById(
+            'expandScrollableContainersCheckbox',
+        ).checked = result.expandScrollableContainers !== false;
+    } catch (error) {
+        console.error(
+            'Error loading expand scrollable containers preference:',
+            error,
+        );
+    }
 }
 
 // Collapsed by default; toggles the hidden-elements list visibility
@@ -219,6 +237,20 @@ function attachEventListeners() {
             } catch (error) {
                 console.error(
                     'Error saving remove parent alignment preference:',
+                    error,
+                );
+            }
+        });
+    document
+        .getElementById('expandScrollableContainersCheckbox')
+        .addEventListener('change', async (event) => {
+            try {
+                await chrome.storage.local.set({
+                    expandScrollableContainers: event.target.checked,
+                });
+            } catch (error) {
+                console.error(
+                    'Error saving expand scrollable containers preference:',
                     error,
                 );
             }
