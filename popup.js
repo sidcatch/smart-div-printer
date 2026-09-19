@@ -9,8 +9,48 @@ let currentHostname = '';
 document.addEventListener('DOMContentLoaded', async () => {
     await loadCurrentSite();
     await loadHiddenElements();
+    await loadSkipPrintWarningSetting();
+    await loadPreserveParentStylesSettings();
     attachEventListeners();
 });
+
+// Load the skip-print-warning preference
+async function loadSkipPrintWarningSetting() {
+    try {
+        const result = await chrome.storage.local.get('skipPrintWarning');
+        document.getElementById('skipPrintWarningCheckbox').checked =
+            !!result.skipPrintWarning;
+    } catch (error) {
+        console.error('Error loading print warning preference:', error);
+    }
+}
+
+// Load the preserve-parent-styles preferences (preserve is on by default)
+async function loadPreserveParentStylesSettings() {
+    try {
+        const result = await chrome.storage.local.get([
+            'preserveParentStyles',
+            'removeParentAlignment',
+        ]);
+        const preserveParentStyles = result.preserveParentStyles !== false;
+        document.getElementById('preserveParentStylesCheckbox').checked =
+            preserveParentStyles;
+        document.getElementById('removeParentAlignmentCheckbox').checked =
+            !!result.removeParentAlignment;
+        updateRemoveParentAlignmentRowState(preserveParentStyles);
+    } catch (error) {
+        console.error(
+            'Error loading preserve parent styles preference:',
+            error,
+        );
+    }
+}
+
+// The alignment sub-setting only makes sense while parent preservation is on
+function updateRemoveParentAlignmentRowState(preserveParentStyles) {
+    const row = document.getElementById('removeParentAlignmentRow');
+    row.classList.toggle('settings-row-disabled', !preserveParentStyles);
+}
 
 // Load current site information
 async function loadCurrentSite() {
@@ -130,6 +170,46 @@ function attachEventListeners() {
         .getElementById('selectHideBtn')
         .addEventListener('click', () => startSelection('hide'));
     document.getElementById('clearAllBtn').addEventListener('click', clearAll);
+    document
+        .getElementById('skipPrintWarningCheckbox')
+        .addEventListener('change', async (event) => {
+            try {
+                await chrome.storage.local.set({
+                    skipPrintWarning: event.target.checked,
+                });
+            } catch (error) {
+                console.error('Error saving print warning preference:', error);
+            }
+        });
+    document
+        .getElementById('preserveParentStylesCheckbox')
+        .addEventListener('change', async (event) => {
+            updateRemoveParentAlignmentRowState(event.target.checked);
+            try {
+                await chrome.storage.local.set({
+                    preserveParentStyles: event.target.checked,
+                });
+            } catch (error) {
+                console.error(
+                    'Error saving preserve parent styles preference:',
+                    error,
+                );
+            }
+        });
+    document
+        .getElementById('removeParentAlignmentCheckbox')
+        .addEventListener('change', async (event) => {
+            try {
+                await chrome.storage.local.set({
+                    removeParentAlignment: event.target.checked,
+                });
+            } catch (error) {
+                console.error(
+                    'Error saving remove parent alignment preference:',
+                    error,
+                );
+            }
+        });
 }
 
 // Start selection mode
@@ -140,12 +220,12 @@ async function startSelection(mode) {
             currentWindow: true,
         });
 
-        // Check if content script is already injected
+        // Check if content script is already injected (flag persists after deactivation, only cleared by navigation)
         let isInjected = false;
         try {
             const [result] = await chrome.scripting.executeScript({
                 target: { tabId: tab.id },
-                func: () => typeof window.__smartDivPrinter !== 'undefined',
+                func: () => window.__smartDivPrinterInitialized === true,
             });
             isInjected = result?.result;
         } catch (e) {

@@ -105,6 +105,53 @@
                 <div id="hiddenList" class="hidden-list"></div>
             </div>
 
+            <div class="settings-section">
+                <div class="settings-row">
+                    <label class="checkbox-label">
+                        <input
+                            type="checkbox"
+                            id="skipPrintWarningCheckbox"
+                            class="settings-checkbox"
+                        />
+                        <span class="checkbox-custom"></span>
+                    </label>
+                    <span class="settings-label">
+                        Skip the unsaved changes warning before printing
+                    </span>
+                </div>
+
+                <div class="settings-row">
+                    <label class="checkbox-label">
+                        <input
+                            type="checkbox"
+                            id="preserveParentStylesCheckbox"
+                            class="settings-checkbox"
+                        />
+                        <span class="checkbox-custom"></span>
+                    </label>
+                    <span class="settings-label">
+                        Preserve parent elements to keep inherited styling
+                    </span>
+                </div>
+
+                <div
+                    class="settings-row settings-row-nested"
+                    id="removeParentAlignmentRow"
+                >
+                    <label class="checkbox-label">
+                        <input
+                            type="checkbox"
+                            id="removeParentAlignmentCheckbox"
+                            class="settings-checkbox"
+                        />
+                        <span class="checkbox-custom"></span>
+                    </label>
+                    <span class="settings-label">
+                        Also remove parent display and alignment styling
+                    </span>
+                </div>
+            </div>
+
             <footer class="footer">
                 <div class="footer-stats">
                     <span id="statsText">Ready to print</span>

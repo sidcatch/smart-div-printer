@@ -127,6 +127,11 @@
     // ===========================
 
     function startSelectionMode(selectionType) {
+        // Print preview replaced the page; a new selection here would trap the toolbar's clicks
+        if (document.querySelector('[data-smart-printer-toolbar]')) {
+            return;
+        }
+
         // Toggle off if already active
         if (window.__smartDivPrinter?.active) {
             window.__smartDivPrinter.cleanup();
@@ -576,6 +581,10 @@
                 if (
                     element.hasAttribute('data-smart-printer-panel') ||
                     element.hasAttribute('data-smart-printer-tooltip') ||
+                    element.hasAttribute(
+                        'data-smart-printer-warning-overlay',
+                    ) ||
+                    element.hasAttribute('data-smart-printer-toolbar') ||
                     element.id === 'smart-printer-toggle-mode'
                 ) {
                     return true;
@@ -763,9 +772,12 @@
         const element = state.selectedElement;
 
         if (state.selectionType === 'print') {
+            const proceed = await confirmPrintWarning();
+            if (!proceed) return;
+
             // Print mode: print the selected element
             deactivate();
-            printElement(element);
+            await printElement(element);
         } else {
             // Hide mode: save to hidden elements
             const selector = generateSelector(element);
@@ -828,6 +840,91 @@
             state.ui.overlay.style.background = state.colors.bgColor;
             state.ui.overlay.style.display = 'none';
         }
+    }
+
+    // ===========================
+    // Print Warning Dialog
+    // ===========================
+
+    async function confirmPrintWarning() {
+        try {
+            const result = await chrome.storage.local.get('skipPrintWarning');
+            if (result.skipPrintWarning) return true;
+        } catch (error) {
+            console.error('Error reading print warning preference:', error);
+        }
+
+        return new Promise((resolve) => {
+            const overlay = document.createElement('div');
+            overlay.setAttribute('data-smart-printer-warning-overlay', 'true');
+            Object.assign(overlay.style, {
+                position: 'fixed',
+                inset: '0',
+                zIndex: '2147483647',
+                background: 'rgba(0,0,0,0.5)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontFamily: 'system-ui, -apple-system, "Segoe UI", sans-serif',
+            });
+
+            overlay.innerHTML = `
+                <div style="background:#fff; border-radius: 8px; max-width: 380px; width: 90%; padding: 20px; box-shadow: 0 8px 32px rgba(0,0,0,0.3);">
+                    <div style="display:flex; gap:12px; align-items:flex-start;">
+                        <span style="font-size:24px; line-height:1;">⚠️</span>
+                        <div>
+                            <div style="font-size:15px; font-weight:600; color:#202124; margin-bottom:6px;">Unsaved changes may be lost</div>
+                            <div style="font-size:13px; color:#5f6368; line-height:1.4;">
+                                Preparing the print preview replaces this page's content, so any unsaved form entries or in-progress work will be permanently lost. Closing the preview reloads the page to its original state (not your unsaved changes).
+                            </div>
+                        </div>
+                    </div>
+                    <label style="display:flex; align-items:center; gap:8px; margin:14px 0 4px; font-size:13px; color:#202124; cursor:pointer;">
+                        <input type="checkbox" id="smart-printer-warning-dont-show" style="cursor:pointer;">
+                        Don't show this warning again
+                    </label>
+                    <div style="font-size:11px; color:#80868b; margin-bottom:4px;">
+                        You can re-enable this warning anytime from the extension popup.
+                    </div>
+                    <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:16px;">
+                        <button id="smart-printer-warning-cancel" style="padding:8px 14px; border:1px solid #5f6368; border-radius:4px; background:#fff; color:#202124; font:13px system-ui, sans-serif; cursor:pointer;">Cancel</button>
+                        <button id="smart-printer-warning-continue" style="padding:8px 14px; border:none; border-radius:4px; background:#1a73e8; color:#fff; font:13px system-ui, sans-serif; font-weight:600; cursor:pointer;">Continue</button>
+                    </div>
+                </div>
+            `;
+
+            document.documentElement.appendChild(overlay);
+
+            const cleanupDialog = (proceed) => {
+                overlay.remove();
+                resolve(proceed);
+            };
+
+            overlay
+                .querySelector('#smart-printer-warning-continue')
+                .addEventListener('click', async () => {
+                    const dontShow = overlay.querySelector(
+                        '#smart-printer-warning-dont-show',
+                    ).checked;
+                    if (dontShow) {
+                        try {
+                            await chrome.storage.local.set({
+                                skipPrintWarning: true,
+                            });
+                        } catch (error) {
+                            console.error(
+                                'Error saving print warning preference:',
+                                error,
+                            );
+                        }
+                    }
+                    cleanupDialog(true);
+                });
+
+            overlay
+                .querySelector('#smart-printer-warning-cancel')
+                .addEventListener('click', () => cleanupDialog(false));
+        });
     }
 
     // ===========================
@@ -931,14 +1028,10 @@
     // Print Functionality
     // ===========================
 
-    function printElement(sourceElement) {
+    async function printElement(sourceElement) {
+        const settings = await getPrintSettings();
         const clone = createPrintableClone(sourceElement);
         const pageTitle = document.title || 'Untitled';
-
-        // Save original content
-        const originalBody = document.body.cloneNode(true);
-        const originalTitle = document.title;
-        const originalHead = document.head.innerHTML;
 
         // Replace page content with print-ready version
         document.title = pageTitle;
@@ -953,43 +1046,102 @@
         const toolbar = createPrintToolbar();
         document.body.appendChild(toolbar);
 
-        // Create content container
-        const contentContainer = document.createElement('div');
-        contentContainer.className = 'print-content';
-        contentContainer.appendChild(clone);
+        // Create content container, optionally wrapped in stripped-down ancestor shells
+        const contentContainer = buildPrintContainer(
+            clone,
+            sourceElement,
+            settings,
+        );
         document.body.appendChild(contentContainer);
 
-        // Handle print dialog
-        const handleAfterPrint = () => {
-            document.title = originalTitle;
-            document.head.innerHTML = originalHead;
-            document.body.replaceWith(originalBody);
-            window.location.reload();
-        };
-
+        // The preview stays up after the native dialog closes; Cancel restores the page
         setTimeout(() => {
             window.print();
-
-            if (window.matchMedia) {
-                const mediaQueryList = window.matchMedia('print');
-                const handlePrintChange = (mql) => {
-                    if (!mql.matches) {
-                        handleAfterPrint();
-                    }
-                };
-
-                if (mediaQueryList.addEventListener) {
-                    mediaQueryList.addEventListener(
-                        'change',
-                        handlePrintChange,
-                    );
-                } else {
-                    mediaQueryList.addListener(handlePrintChange);
-                }
-            } else {
-                window.addEventListener('afterprint', handleAfterPrint);
-            }
         }, 100);
+    }
+
+    async function getPrintSettings() {
+        try {
+            const result = await chrome.storage.local.get([
+                'preserveParentStyles',
+                'removeParentAlignment',
+            ]);
+            return {
+                preserveParentStyles: result.preserveParentStyles !== false,
+                removeParentAlignment: !!result.removeParentAlignment,
+            };
+        } catch (error) {
+            console.error('Error reading print settings:', error);
+            return { preserveParentStyles: true, removeParentAlignment: false };
+        }
+    }
+
+    function buildPrintContainer(clone, sourceElement, settings) {
+        const contentContainer = document.createElement('div');
+        contentContainer.className = 'print-content';
+
+        if (!settings.preserveParentStyles) {
+            contentContainer.appendChild(clone);
+            return contentContainer;
+        }
+
+        // Recreate the ancestor chain (attributes only, no siblings/content) so
+        // class/id-based CSS from the original stylesheets still applies
+        const ancestors = [];
+        let current = sourceElement.parentElement;
+        while (
+            current &&
+            current !== document.body &&
+            current !== document.documentElement
+        ) {
+            ancestors.unshift(current);
+            current = current.parentElement;
+        }
+
+        let innermostParent = contentContainer;
+        ancestors.forEach((ancestor) => {
+            const shell = ancestor.cloneNode(false);
+            resetShellBoxModel(shell);
+            if (settings.removeParentAlignment) {
+                resetShellAlignment(shell);
+            }
+            innermostParent.appendChild(shell);
+            innermostParent = shell;
+        });
+
+        innermostParent.appendChild(clone);
+        return contentContainer;
+    }
+
+    function resetShellBoxModel(shell) {
+        const resets = {
+            margin: '0',
+            padding: '0',
+            width: 'auto',
+            height: 'auto',
+            'min-width': '0',
+            'max-width': 'none',
+            'min-height': '0',
+            'max-height': 'none',
+            'flex-basis': 'auto',
+        };
+        Object.entries(resets).forEach(([prop, value]) => {
+            shell.style.setProperty(prop, value, 'important');
+        });
+    }
+
+    function resetShellAlignment(shell) {
+        shell.style.setProperty('display', 'block', 'important');
+        [
+            'justify-content',
+            'align-items',
+            'align-content',
+            'place-items',
+            'place-content',
+            'text-align',
+        ].forEach((prop) =>
+            shell.style.setProperty(prop, 'unset', 'important'),
+        );
     }
 
     function createPrintableClone(source) {
@@ -1150,11 +1302,23 @@
     function createPrintToolbar() {
         const toolbar = document.createElement('div');
         toolbar.className = 'print-toolbar';
-        toolbar.innerHTML = `
-            <button class="primary" onclick="window.print()">Print / Save as PDF</button>
-            <button onclick="window.location.reload()">Cancel</button>
-            <span style="color: #5f6368;">Clean print preview (hidden elements removed)</span>
-        `;
+        toolbar.setAttribute('data-smart-printer-toolbar', 'true');
+
+        // Inline onclick handlers run in page context and are blocked by most sites' CSP
+        const printBtn = document.createElement('button');
+        printBtn.className = 'primary';
+        printBtn.textContent = 'Print / Save as PDF';
+        printBtn.addEventListener('click', () => window.print());
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.textContent = 'Close Preview';
+        cancelBtn.addEventListener('click', () => window.location.reload());
+
+        const note = document.createElement('span');
+        note.style.color = '#5f6368';
+        note.textContent = 'Clean print preview (hidden elements removed)';
+
+        toolbar.append(printBtn, cancelBtn, note);
         return toolbar;
     }
 })();
