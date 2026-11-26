@@ -1131,6 +1131,8 @@
             'min-height': '0',
             'max-height': 'none',
             'flex-basis': 'auto',
+            overflow: 'visible',
+            position: 'static',
         };
         Object.entries(resets).forEach(([prop, value]) => {
             shell.style.setProperty(prop, value, 'important');
